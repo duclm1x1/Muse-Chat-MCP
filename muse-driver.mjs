@@ -154,6 +154,14 @@ class MuseDriver {
   }
 
   async requirePage() {
+    if (this.ctx) {
+      const pages = this.ctx.pages().filter((p) => !p.isClosed())
+      if (pages.length > 0) {
+        const musePage = pages.find((p) => p.url().includes('muse.ai'))
+        this.page = musePage || pages[pages.length - 1]
+        return this.page
+      }
+    }
     if (!this.isRunning()) await this.launch()
     return this.page
   }
@@ -199,7 +207,7 @@ class MuseDriver {
       return { browserRunning: false, url: null, loggedIn: false, composerReady: false, profileDir: PROFILE_DIR, headless: HEADLESS }
     }
     const auth = await this.checkAuth()
-    const composerReady = await this.hasComposer()
+    const composerReady = auth.ok ? await this.hasComposer() : false
     return {
       browserRunning: true,
       url,
@@ -216,8 +224,14 @@ class MuseDriver {
     await this.gotoApp()
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
+      if (!this.ctx) {
+        return { loggedIn: false, hint: 'Browser window was closed.' }
+      }
       const auth = await this.checkAuth()
-      if (auth.ok) return { loggedIn: true, viewerId: auth.viewerId || null }
+      if (auth.ok) {
+        await sleep(1500)
+        return { loggedIn: true, viewerId: auth.viewerId || null }
+      }
       await sleep(2000)
     }
     return { loggedIn: false, hint: 'Complete the Meta sign-in in the opened Chrome window, then call muse_login again or muse_status.' }

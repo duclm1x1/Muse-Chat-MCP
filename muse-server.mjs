@@ -182,12 +182,65 @@ export function buildServer() {
 }
 
 async function main() {
+  const shutdown = async () => {
+    await driver.close().catch(() => {})
+    process.exit(0)
+  }
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
+  process.stdin.on('close', shutdown)
+
   const args = process.argv.slice(2)
+
+  if (args.includes('--login')) {
+    await driver.launch()
+    const initialStatus = await driver.status()
+    if (initialStatus.loggedIn) {
+      log('Already logged in to muse.ai!')
+      log('Status:', JSON.stringify(initialStatus))
+      await driver.close()
+      process.exit(0)
+    }
+    log('Opened Chrome. Please sign in with your Meta account at muse.ai in the opened window...')
+    log('Waiting for login to complete (timeout: 5 minutes)...')
+    const timeoutMs = Number(process.env.MUSE_LOGIN_TIMEOUT_MS) || 300000
+    const res = await driver.login(timeoutMs)
+    if (res.loggedIn) {
+      log('Login successful! Viewer ID:', res.viewerId)
+      const st = await driver.status()
+      log('Status:', JSON.stringify(st))
+    } else {
+      log('Login was not completed:', res.hint || 'Timed out.')
+    }
+    await driver.close()
+    process.exit(res.loggedIn ? 0 : 1)
+  }
 
   if (args.includes('--self-test')) {
     await driver.launch()
     const st = await driver.status()
     log('self-test status:', JSON.stringify(st))
+    if (!st.loggedIn) {
+      const isAutomated = st.headless || !!process.env.CI || args.includes('--no-wait') || process.env.MUSE_SELFTEST_NOWAIT === '1'
+      if (isAutomated) {
+        log('Not logged in. (Non-interactive/headless mode: exiting without waiting for login)')
+        await driver.close()
+        process.exit(1)
+      } else {
+        log('Not logged in yet. Please sign in with your Meta account in the opened Chrome window...')
+        log('Waiting for login to complete (timeout: 5 minutes)...')
+        const timeoutMs = Number(process.env.MUSE_LOGIN_TIMEOUT_MS) || 300000
+        const loginRes = await driver.login(timeoutMs)
+        if (loginRes.loggedIn) {
+          const finalSt = await driver.status()
+          log('Login successful! Updated status:', JSON.stringify(finalSt))
+        } else {
+          log('Login was not completed:', loginRes.hint || 'Timed out.')
+        }
+        await driver.close()
+        process.exit(loginRes.loggedIn ? 0 : 1)
+      }
+    }
     await driver.close()
     process.exit(0)
   }
@@ -214,14 +267,6 @@ async function main() {
   await server.connect(transport)
   log('muse MCP server ready on stdio')
   startShimIfEnabled()
-
-  const shutdown = async () => {
-    await driver.close().catch(() => {})
-    process.exit(0)
-  }
-  process.on('SIGINT', shutdown)
-  process.on('SIGTERM', shutdown)
-  process.stdin.on('close', shutdown)
 }
 
 main().catch((err) => {

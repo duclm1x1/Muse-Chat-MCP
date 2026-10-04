@@ -56,7 +56,9 @@ npm install
 ## First run (log in once)
 
 ```bash
-npm run selftest          # launches Chrome, prints login/browser state, then closes
+npm run login             # opens Chrome to muse.ai and waits for you to sign in (5 min)
+# or:
+npm run selftest          # checks status; if not logged in, waits for you to complete sign-in
 ```
 
 A Chrome window opens to `https://muse.ai`. Sign in with your Meta account. The session is stored in a dedicated profile (`.muse-profile/`, git-ignored) and reused afterwards. When `muse_status` reports `"loggedIn": true`, you're ready.
@@ -347,7 +349,7 @@ opencode, Cursor, Cline, Aider, … anything that can read files.
 
 ## Troubleshooting
 
-- **`loggedIn: false`** → run `muse_login` (or `npm run selftest`) and sign in in the Chrome window.
+- **`loggedIn: false`** → run `npm run login` (or `npm run selftest`) and complete sign-in in the opened Chrome window.
 - **`composerReady: false`** after login → `node muse-server.mjs --dump-dom`; if the DOM changed, re-derive selectors and update `SELECTORS` in `muse-driver.mjs`.
 - **Empty reply / `timedOut`** → raise `timeout_sec`; agent tasks (browsing, VM work) can take minutes. `needsApproval: true` means Muse is waiting on an in-app approval you must click.
 - **Chrome profile locked** → expected if a Chrome already uses `.muse-profile`. The driver auto-attaches to `http://127.0.0.1:9222` in that case; otherwise close that window, or start Chrome with `--remote-debugging-port=9222` and set `MUSE_CDP`.
