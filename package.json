@@ -33,6 +33,7 @@
   },
   "scripts": {
     "start": "node muse-server.mjs",
+    "login": "node muse-server.mjs --login",
     "muse": "node muse-cli.mjs",
     "selftest": "node muse-server.mjs --self-test",
     "dump": "node muse-server.mjs --dump-dom"
